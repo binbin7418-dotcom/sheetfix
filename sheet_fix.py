@@ -7,6 +7,8 @@ The fix layer is ours: it applies only mechanical, evidence-backed fixes and
 reports everything judgment-based with the auditor's own suggestion.
 
 Usage: python3 sheet_fix.py <workbook.xlsx> <outdir> [auditor_cli]
+Batch: python3 sheet_fix.py <workbook-or-folder> [<more inputs> ...] <outdir>
+       (or python3 sheet_batch.py --out <outdir> <inputs...>; writes batch_summary.md)
 Outputs in outdir: <name>_fixed.xlsx, fix_report.md, findings_before.json, findings_after.json
 """
 import json, os, re, subprocess, sys
@@ -190,8 +192,24 @@ def run(src, outdir, cli="spreadsheet-auditor"):
 
 
 def main():
-    src, outdir = sys.argv[1], sys.argv[2]
-    cli = sys.argv[3] if len(sys.argv) > 3 else "spreadsheet-auditor"
+    args = sys.argv[1:]
+    # Batch form: sheet_fix.py <workbook-or-folder> [<more inputs> ...] <outdir>
+    # Detected when the 2nd argument is itself an existing workbook/folder
+    # (the legacy 3rd argument is an auditor CLI name, never an existing path).
+    if len(args) >= 3 and (os.path.isdir(args[1]) or os.path.isfile(args[1])):
+        from sheet_batch import run_batch
+        result = run_batch(args[:-1], args[-1])
+        t = result["totals"]
+        print(f"workbooks={len(result['entries'])} failed={result['failed']} before={t['before']} fixes={t['fixes']} resolved={t['resolved']} remaining={t['remaining']} new={t['new_issues']} summary={result['summary_path']}")
+        return
+    if args and os.path.isdir(args[0]):  # a single folder is a batch too
+        from sheet_batch import run_batch
+        result = run_batch([args[0]], args[1])
+        t = result["totals"]
+        print(f"workbooks={len(result['entries'])} failed={result['failed']} before={t['before']} fixes={t['fixes']} resolved={t['resolved']} remaining={t['remaining']} new={t['new_issues']} summary={result['summary_path']}")
+        return
+    src, outdir = args[0], args[1]
+    cli = args[2] if len(args) > 2 else "spreadsheet-auditor"
     s = run(src, outdir, cli)
     print(f"before={len(s['before'])} fixes={len(s['fixes'])} resolved={len(s['resolved'])} remaining={len(s['remaining'])} new={len(s['new_issues'])}")
 
