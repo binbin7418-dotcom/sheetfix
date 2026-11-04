@@ -45,12 +45,22 @@
     <p>In a seeded test workbook with 13 planted defects (3 critical), SheetFix repaired 5 directly, cleared 8 findings on re-check — including the cross-foot failure that made row and column totals disagree — introduced <span class="num">0 new issues</span>, and reported the 5 judgment calls that remained. The underlying audit engine is deterministic and benchmarked on 2,700+ real-world workbooks.</p>
   </div>
 
+  <h2>See a sample report first</h2>
+  <div class="card">
+    <p>Download the exact output SheetFix produced for a fictional sample workbook (Bluepine Crafts Ltd — invented company, invented numbers, with typical defects planted on purpose: a text-stored number, a space-padded lookup key, drifted formulas, a broken reference and a hardcoded plug). Findings before: <span class="num">13</span> · auto-fixed: <span class="num">5</span> · resolved on re-check: <span class="num">8</span> · remaining judgment calls: <span class="num">5</span> · new issues introduced: <span class="num">0</span>.</p>
+    <ul>
+      <li><a href="sample/sample_fix_report.md">Sample fix log &amp; re-check report (.md)</a></li>
+      <li><a href="sample/bluepine_sample.xlsx">The sample workbook itself (.xlsx)</a> — run SheetFix on it and compare</li>
+      <li><a href="sample/bluepine_sample_fixed.xlsx">The repaired workbook (.xlsx)</a></li>
+    </ul>
+  </div>
+
   <h2>How it works</h2>
   <div class="card">
     <ol>
-      <li>Open SheetFix, choose your <code>.xlsx</code> / <code>.xlsm</code> file</li>
+      <li>Open SheetFix, choose your <code>.xlsx</code> / <code>.xlsm</code> file — or select several at once (for example, one per client) and process them as a batch</li>
       <li>Click <em>Audit, Fix &amp; Re-Check</em></li>
-      <li>Get back a <code>_fixed.xlsx</code>, a fix log (old → new, with reasons), and the re-check report</li>
+      <li>Get back a <code>_fixed.xlsx</code>, a fix log (old → new, with reasons), and the re-check report for each workbook — plus a one-page <code>batch_summary.md</code> roll-up when you run a batch</li>
     </ol>
     <p>Windows 10/11. No Excel or Python installation required. Your original file is never modified.</p>
   </div>
@@ -62,5 +72,5 @@
     <p>SheetFix’s audit engine is built on the open-source spreadsheet-auditor project (MIT licence, by Pete Hottelet). SheetFix adds the repair and re-verification layer. This page describes file-level defect repair; it does not validate business assumptions.</p>
   </footer>
 </div>
-<footer style="margin-top:48px;padding:24px 0;border-top:1px solid #ddd;font-size:14px;text-align:center"><p>More local, private tools from the same workshop:</p><p><a href="https://binbin7418-dotcom.github.io/feedfix/">FeedFix</a> · <a href="https://binbin7418-dotcom.github.io/audiofix/">AudioFix</a> · <a href="https://binbin7418-dotcom.github.io/shopifycsvfix/">ShopifyCsvFix</a> · <a href="https://binbin7418-dotcom.github.io/listclean/">ListClean</a> · <a href="https://binbin7418-dotcom.github.io/silencecut/">SilenceCut</a> · <a href="https://binbin7418-dotcom.github.io/printready/">PrintReady</a> · <a href="https://binbin7418-dotcom.github.io/imagebatch/">ImageBatch</a> · <a href="https://binbin7418-dotcom.github.io/qrbatch/">QRBatch</a></p></footer></body>
+</body>
 </html>
