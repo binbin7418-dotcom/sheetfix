@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""SheetFix GUI — pick a workbook, click Run, get the fixed file + re-check report.
+"""SheetFix GUI — pick one or more workbooks, click Run, get the fixed
+files + re-check reports (plus a batch_summary.md when several are queued).
 Everything runs locally; no data leaves the machine."""
 import os
 import subprocess
@@ -10,6 +11,7 @@ from tkinter import filedialog, messagebox, ttk
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from sheet_fix import run  # noqa: E402
+from sheet_batch import run_batch  # noqa: E402
 
 
 class App(tk.Tk):
@@ -21,11 +23,13 @@ class App(tk.Tk):
 
         self.file_var = tk.StringVar()
         self.out_var = tk.StringVar()
-        self.status = tk.StringVar(value="Choose an .xlsx or .xlsm workbook to begin.")
+        self.status = tk.StringVar(value="Choose one or more .xlsx / .xlsm workbooks to begin (Ctrl/Shift-click for several).")
         self.summary = None
+        self.files = []
+        self.report_path = None
 
         pad = {"padx": 12, "pady": 6}
-        ttk.Label(self, text="Workbook:").grid(row=0, column=0, sticky="w", **pad)
+        ttk.Label(self, text="Workbook(s):").grid(row=0, column=0, sticky="w", **pad)
         ttk.Entry(self, textvariable=self.file_var, width=52).grid(row=0, column=1, **pad)
         ttk.Button(self, text="Browse…", command=self.pick_file).grid(row=0, column=2, **pad)
 
@@ -51,11 +55,15 @@ class App(tk.Tk):
                   wraplength=600, foreground="#666").grid(row=5, column=0, columnspan=3, sticky="w", **pad)
 
     def pick_file(self):
-        p = filedialog.askopenfilename(filetypes=[("Excel workbooks", "*.xlsx *.xlsm")])
-        if p:
-            self.file_var.set(p)
+        paths = filedialog.askopenfilenames(filetypes=[("Excel workbooks", "*.xlsx *.xlsm")])
+        if paths:
+            self.files = list(paths)
+            if len(self.files) == 1:
+                self.file_var.set(self.files[0])
+            else:
+                self.file_var.set(f"{len(self.files)} workbooks selected")
             if not self.out_var.get():
-                self.out_var.set(os.path.join(os.path.dirname(p), "SheetFix_output"))
+                self.out_var.set(os.path.join(os.path.dirname(self.files[0]), "SheetFix_output"))
 
     def pick_out(self):
         p = filedialog.askdirectory()
@@ -63,9 +71,12 @@ class App(tk.Tk):
             self.out_var.set(p)
 
     def start(self):
-        src, out = self.file_var.get().strip(), self.out_var.get().strip()
-        if not src or not os.path.isfile(src):
-            messagebox.showerror("SheetFix", "Please choose a workbook file first.")
+        files = list(self.files)
+        if not files and self.file_var.get().strip() and os.path.isfile(self.file_var.get().strip()):
+            files = [self.file_var.get().strip()]  # path typed/pasted by hand
+        out = self.out_var.get().strip()
+        if not files:
+            messagebox.showerror("SheetFix", "Please choose at least one workbook file first.")
             return
         if not out:
             messagebox.showerror("SheetFix", "Please choose an output folder.")
@@ -73,19 +84,32 @@ class App(tk.Tk):
         self.run_btn.config(state="disabled")
         self.report_btn.config(state="disabled")
         self.folder_btn.config(state="disabled")
-        self.status.set("Running audit → fix → re-check… this can take a few seconds.")
-        threading.Thread(target=self._work, args=(src, out), daemon=True).start()
+        label = "workbook" if len(files) == 1 else f"{len(files)} workbooks"
+        self.status.set(f"Running audit → fix → re-check on {label}… this can take a few seconds.")
+        threading.Thread(target=self._work, args=(files, out), daemon=True).start()
 
-    def _work(self, src, out):
+    def _work(self, files, out):
         try:
-            self.summary = run(src, out)
-            s = self.summary
-            text = (f"Done. Findings before: {len(s['before'])} · auto-fixed: {len(s['fixes'])} · "
-                    f"resolved on re-check: {len(s['resolved'])} · remaining (need your judgment): {len(s['remaining'])} · "
-                    f"new issues introduced: {len(s['new_issues'])}.\nFixed file: {s['fixed_path']}")
+            if len(files) == 1:
+                self.summary = run(files[0], out)
+                s = self.summary
+                self.report_path = s["report_path"]
+                text = (f"Done. Findings before: {len(s['before'])} · auto-fixed: {len(s['fixes'])} · "
+                        f"resolved on re-check: {len(s['resolved'])} · remaining (need your judgment): {len(s['remaining'])} · "
+                        f"new issues introduced: {len(s['new_issues'])}.\nFixed file: {s['fixed_path']}")
+            else:
+                batch = run_batch(files, out)
+                self.summary = batch
+                self.report_path = batch["summary_path"]
+                t = batch["totals"]
+                text = (f"Done — batch of {len(batch['entries'])} workbooks ({batch['failed']} failed). "
+                        f"Findings before: {t['before']} · auto-fixed: {t['fixes']} · "
+                        f"resolved on re-check: {t['resolved']} · remaining (need your judgment): {t['remaining']} · "
+                        f"new issues introduced: {t['new_issues']}.\nBatch summary: {batch['summary_path']}")
         except Exception as exc:  # surface the real error, don't swallow it
             text = f"Something went wrong: {exc}"
             self.summary = None
+            self.report_path = None
         self.after(0, self._done, text)
 
     def _done(self, text):
@@ -104,12 +128,12 @@ class App(tk.Tk):
             subprocess.run(["xdg-open", path], check=False)
 
     def open_report(self):
-        if self.summary:
-            self._open(self.summary["report_path"])
+        if self.report_path:
+            self._open(self.report_path)
 
     def open_folder(self):
-        if self.summary:
-            self._open(os.path.dirname(self.summary["report_path"]))
+        if self.report_path:
+            self._open(os.path.dirname(self.report_path))
 
 
 if __name__ == "__main__":
